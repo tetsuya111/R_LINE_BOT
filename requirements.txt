@@ -1,0 +1,6 @@
+docopt
+python-dotenv
+requests
+fastapi
+uvicorn
+pyngrok

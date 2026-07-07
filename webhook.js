@@ -19,6 +19,8 @@ const ngrok = require("@ngrok/ngrok");
 dotenv.config({ quiet: true });
 
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
+const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+const LINE_REPLY_URL = "https://api.line.me/v2/bot/message/reply";
 const DB_PATH = path.join(__dirname, "users.db");
 const NAME_PATTERN = /^名前\s+(.+)$/;
 const NGROK_ACCESS_TOKEN = process.env.NGROK_ACCESS_TOKEN;
@@ -48,6 +50,18 @@ function saveUserName(userId, name) {
   conn.close();
 }
 
+async function replyMessage(replyToken, message) {
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+  };
+  const payload = {
+    replyToken,
+    messages: [{ type: "text", text: message }],
+  };
+  await fetch(LINE_REPLY_URL, { method: "POST", headers, body: JSON.stringify(payload) });
+}
+
 function verifySignature(body, signature) {
   const digest = crypto
     .createHmac("sha256", LINE_CHANNEL_SECRET)
@@ -61,7 +75,7 @@ function verifySignature(body, signature) {
   return crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
 }
 
-app.post("/webhook", (req, res) => {
+app.post("/webhook", async (req, res) => {
   const body = req.body;
   const xLineSignature = req.header("x-line-signature");
 
@@ -80,7 +94,16 @@ app.post("/webhook", (req, res) => {
     const match = NAME_PATTERN.exec(message.text || "");
     const userId = event.source && event.source.userId;
     if (match && userId) {
-      saveUserName(userId, match[1].trim());
+      const name = match[1].trim();
+      saveUserName(userId, name);
+
+      const replyToken = event.replyToken;
+      if (replyToken) {
+        await replyMessage(
+          replyToken,
+          `名前のご登録ありがとうございます！「${name}」で登録されました。`
+        );
+      }
     }
   }
 

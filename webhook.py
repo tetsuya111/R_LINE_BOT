@@ -14,12 +14,15 @@ import re
 import sqlite3
 from pathlib import Path
 
+import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Request
 
 load_dotenv()
 
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
+LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+LINE_REPLY_URL = "https://api.line.me/v2/bot/message/reply"
 DB_PATH = Path(__file__).parent / "users.db"
 NAME_PATTERN = re.compile(r"^名前\s+(.+)$")
 NGROK_ACCESS_TOKEN = os.getenv("NGROK_ACCESS_TOKEN")
@@ -48,6 +51,18 @@ def save_user_name(user_id: str, name: str) -> None:
             """,
             (user_id, name),
         )
+
+
+def reply_message(reply_token: str, message: str) -> None:
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
+    }
+    payload = {
+        "replyToken": reply_token,
+        "messages": [{"type": "text", "text": message}],
+    }
+    requests.post(LINE_REPLY_URL, headers=headers, json=payload)
 
 
 def verify_signature(body: bytes, signature: str) -> bool:
@@ -81,7 +96,15 @@ async def webhook(request: Request, x_line_signature: str = Header(None)):
         match = NAME_PATTERN.match(message.get("text", ""))
         user_id = event.get("source", {}).get("userId")
         if match and user_id:
-            save_user_name(user_id, match.group(1).strip())
+            name = match.group(1).strip()
+            save_user_name(user_id, name)
+
+            reply_token = event.get("replyToken")
+            if reply_token:
+                reply_message(
+                    reply_token,
+                    f"名前のご登録ありがとうございます！「{name}」で登録されました。",
+                )
 
     return {"status": "ok"}
 

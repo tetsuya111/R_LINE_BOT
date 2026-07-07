@@ -1,0 +1,14 @@
+{
+  "name": "codering_line_bot",
+  "version": "1.0.0",
+  "description": "LINE Messaging APIでメッセージを一斉送信するCLIツールと、メッセージを受信するwebhookエンドポイント。",
+  "private": true,
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@ngrok/ngrok": "^1.7.0",
+    "docopt": "^0.6.2",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  }
+}
